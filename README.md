@@ -18,9 +18,7 @@ Install the packages in your server, Electrobun app, and web client projects.
 bun add better-auth @better-auth/electron @soorya-u/better-auth-electrobun
 ```
 
-### Add the Electron plugin to your Better Auth server
-
-This package re-exports `electron` from `@better-auth/electron` as `electrobun` — the same server plugin used for the official Electron integration.
+### Add the Electrobun plugin to your Better Auth server
 
 ```ts
 // web/lib/auth.ts
@@ -62,13 +60,15 @@ export const authClient = createAuthClient({
 
 ### Initialize the Electrobun client
 
-In your Electrobun Bun process, create the auth client using `electrobunClient`.
+In your Electrobun Bun process, create the auth client using `electrobunClient`. Because `storage()` is async, initialize it before constructing the client.
 
 ```ts
 // app/lib/auth-client.ts
 import { createAuthClient } from "better-auth/client";
 import { electrobunClient } from "@soorya-u/better-auth-electrobun";
 import { storage } from "@soorya-u/better-auth-electrobun/storage";
+
+const sessionStorage = await storage();
 
 export const authClient = createAuthClient({
   baseURL: "http://localhost:3000",
@@ -78,7 +78,7 @@ export const authClient = createAuthClient({
       protocol: {
         scheme: "com.example.app",
       },
-      storage: await storage(),
+      storage: sessionStorage,
     }),
   ],
 });
@@ -344,14 +344,6 @@ The Bun RPC handler resolves the URL, fetches the image, and returns a `data:ima
 
 ## Options
 
-### Server plugin
-
-The `electrobun()` server plugin is re-exported from `@better-auth/electron` as an alias. Refer to the [official documentation](https://better-auth.com/docs/integrations/electron#server-plugin) for all available options (`codeExpiresIn`, `redirectCookieExpiresIn`, `cookiePrefix`, `clientID`, `disableOriginOverride`).
-
-### Proxy client
-
-`electrobunProxyClient` is re-exported from `@better-auth/electron/proxy` as an alias. Refer to the [official documentation](https://better-auth.com/docs/integrations/electron#proxy-client) for all available options.
-
 ### `electrobunClient` options
 
 #### `signInURL`
@@ -380,10 +372,10 @@ Storage for session and cookie data. Use the built-in `storage()` helper (OS key
 import { storage } from "@soorya-u/better-auth-electrobun/storage";
 
 // Default — stores under service "better-auth-electrobun", account "session"
-electrobunClient({ storage: await storage() });
+const sessionStorage = await storage();
 
 // Custom service/account name in the OS keychain
-electrobunClient({ storage: await storage({ service: "my-app", account: "auth" }) });
+const sessionStorage = await storage({ service: "my-app", account: "auth" });
 ```
 
 #### `callbackPath?`

@@ -2,9 +2,8 @@ export type {
 	ElectronOptions,
 	ElectronSharedOptions,
 } from "@better-auth/electron";
-export { electron, electron as electrobun } from "@better-auth/electron";
+export { electron as electrobun } from "@better-auth/electron";
 export {
-	electronProxyClient,
 	electronProxyClient as electrobunProxyClient,
 } from "@better-auth/electron/proxy";
 
