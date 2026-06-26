@@ -10,12 +10,8 @@ Before integrating with Electrobun, ensure you have a Better Auth server and cli
 
 ### Install the required packages
 
-Install the packages in your server, Electrobun app, and web client projects.
-
-**In each project, run:**
-
 ```bash
-bun add better-auth @better-auth/electron @soorya-u/better-auth-electrobun
+bun add better-auth @soorya-u/better-auth-electrobun
 ```
 
 ### Add the Electrobun plugin to your Better Auth server
@@ -60,15 +56,13 @@ export const authClient = createAuthClient({
 
 ### Initialize the Electrobun client
 
-In your Electrobun Bun process, create the auth client using `electrobunClient`. Because `storage()` is async, initialize it before constructing the client.
+In your Electrobun Bun process, create the auth client using `electrobunClient`.
 
 ```ts
 // app/lib/auth-client.ts
 import { createAuthClient } from "better-auth/client";
 import { electrobunClient } from "@soorya-u/better-auth-electrobun";
 import { storage } from "@soorya-u/better-auth-electrobun/storage";
-
-const sessionStorage = await storage();
 
 export const authClient = createAuthClient({
   baseURL: "http://localhost:3000",
@@ -78,7 +72,7 @@ export const authClient = createAuthClient({
       protocol: {
         scheme: "com.example.app",
       },
-      storage: sessionStorage,
+      storage: storage(),
     }),
   ],
 });
@@ -372,10 +366,10 @@ Storage for session and cookie data. Use the built-in `storage()` helper (OS key
 import { storage } from "@soorya-u/better-auth-electrobun/storage";
 
 // Default — stores under service "better-auth-electrobun", account "session"
-const sessionStorage = await storage();
+electrobunClient({ storage: storage() });
 
 // Custom service/account name in the OS keychain
-const sessionStorage = await storage({ service: "my-app", account: "auth" });
+electrobunClient({ storage: storage({ service: "my-app", account: "auth" }) });
 ```
 
 #### `callbackPath?`

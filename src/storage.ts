@@ -1,34 +1,59 @@
+import { MessageChannel, receiveMessageOnPort } from "node:worker_threads";
 import type { Storage } from "./types/client";
 
-// `Bun.secrets` is not yet in @types/bun 1.3.x — declare locally.
-type BunSecrets = {
-	get(opts: { service: string; name: string }): Promise<string | null>;
-	set(opts: { service: string; name: string }, value: string): Promise<void>;
-	delete(opts: { service: string; name: string }): Promise<boolean>;
-};
-
 export type StorageOptions = {
-	/** Keychain service name. @default "better-auth-electrobun" */
 	service?: string | undefined;
-	/** Keychain account name for the session blob. @default "session" */
 	account?: string | undefined;
 };
 
-export async function storage(opts: StorageOptions = {}): Promise<Storage> {
+let workerCache: { worker: Worker; mainPort: MessagePort } | null = null;
+
+function getWorker() {
+	if (!workerCache) {
+		const { port1: mainPort, port2: workerPort } = new MessageChannel();
+		mainPort.unref();
+		workerPort.unref();
+		const worker = new Worker(
+			new URL("./worker.ts", import.meta.url).href,
+		);
+		worker.postMessage({ op: "init", port: workerPort }, [workerPort]);
+		worker.unref();
+		workerCache = { worker, mainPort };
+	}
+	return workerCache;
+}
+
+function fetchRaw(opts: { service: string; name: string }): string | null {
+	const { worker, mainPort } = getWorker();
+	const semaphore = new Int32Array(
+		new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT),
+	);
+	worker.postMessage({ op: "get", opts, semaphore });
+	Atomics.wait(semaphore, 0, 0);
+	const msg = receiveMessageOnPort(mainPort);
+	return (
+		(msg?.message as { result: string | null } | undefined)?.result ?? null
+	);
+}
+
+function persistRaw(
+	opts: { service: string; name: string },
+	value: string,
+): void {
+	getWorker().worker.postMessage({ op: "set", opts, value });
+}
+
+export function storage(opts: StorageOptions = {}): Storage {
 	const { service = "better-auth-electrobun", account = "session" } = opts;
-	const secrets = (Bun as unknown as { secrets: BunSecrets }).secrets;
+	const keychainOpts = { service, name: account };
 
 	let cache: Record<string, unknown> = {};
 	try {
-		const raw = await secrets.get({ service, name: account });
+		const raw = fetchRaw(keychainOpts);
 		if (raw) cache = JSON.parse(raw) as Record<string, unknown>;
 	} catch {
 		cache = {};
 	}
-
-	const persist = () => {
-		void secrets.set({ service, name: account }, JSON.stringify(cache));
-	};
 
 	return {
 		getItem: (name) => {
@@ -37,11 +62,11 @@ export async function storage(opts: StorageOptions = {}): Promise<Storage> {
 		},
 		setItem: (name, value) => {
 			cache[name] = value;
-			persist();
+			persistRaw(keychainOpts, JSON.stringify(cache));
 		},
 	};
 }
 
-export async function storageForTests(): Promise<Storage> {
+export function storageForTests(): Storage {
 	return storage({ service: `better-auth-electrobun-test-${process.pid}` });
 }
