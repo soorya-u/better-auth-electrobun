@@ -64,7 +64,7 @@ export async function requestAuth(
 	} else {
 		url = new URL(options.signInURL);
 	}
-	url.searchParams.set("client_id", options.clientID || "electron");
+	url.searchParams.set("client_id", options.clientID || "electrobun");
 	url.searchParams.set("code_challenge", codeChallenge);
 	url.searchParams.set("code_challenge_method", "S256");
 	url.searchParams.set("state", state);

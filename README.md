@@ -20,15 +20,15 @@ bun add better-auth @better-auth/electron @soorya-u/better-auth-electrobun
 
 ### Add the Electron plugin to your Better Auth server
 
-This package re-exports `electron` from `@better-auth/electron` — the same server plugin used for the official Electron integration.
+This package re-exports `electron` from `@better-auth/electron` as `electrobun` — the same server plugin used for the official Electron integration.
 
 ```ts
 // web/lib/auth.ts
 import { betterAuth } from "better-auth";
-import { electron } from "@soorya-u/better-auth-electrobun";
+import { electrobun } from "@soorya-u/better-auth-electrobun";
 
 export const auth = betterAuth({
-  plugins: [electron()],
+  plugins: [electrobun()],
   emailAndPassword: { enabled: true },
   socialProviders: {
     google: {
@@ -46,12 +46,12 @@ On your sign-in frontend, add the proxy plugin to handle redirects back into the
 ```ts
 // web/lib/auth-client.ts
 import { createAuthClient } from "better-auth/client";
-import { electronProxyClient } from "@soorya-u/better-auth-electrobun";
+import { electrobunProxyClient } from "@soorya-u/better-auth-electrobun";
 
 export const authClient = createAuthClient({
   baseURL: "http://localhost:3000",
   plugins: [
-    electronProxyClient({
+    electrobunProxyClient({
       protocol: {
         scheme: "com.example.app",
       },
@@ -346,11 +346,11 @@ The Bun RPC handler resolves the URL, fetches the image, and returns a `data:ima
 
 ### Server plugin
 
-The `electron()` server plugin is re-exported from `@better-auth/electron`. Refer to the [official documentation](https://better-auth.com/docs/integrations/electron#server-plugin) for all available options (`codeExpiresIn`, `redirectCookieExpiresIn`, `cookiePrefix`, `clientID`, `disableOriginOverride`).
+The `electrobun()` server plugin is re-exported from `@better-auth/electron` as an alias. Refer to the [official documentation](https://better-auth.com/docs/integrations/electron#server-plugin) for all available options (`codeExpiresIn`, `redirectCookieExpiresIn`, `cookiePrefix`, `clientID`, `disableOriginOverride`).
 
 ### Proxy client
 
-`electronProxyClient` is re-exported from `@better-auth/electron/proxy`. Refer to the [official documentation](https://better-auth.com/docs/integrations/electron#proxy-client) for all available options.
+`electrobunProxyClient` is re-exported from `@better-auth/electron/proxy` as an alias. Refer to the [official documentation](https://better-auth.com/docs/integrations/electron#proxy-client) for all available options.
 
 ### `electrobunClient` options
 
@@ -388,7 +388,7 @@ electrobunClient({ storage: await storage({ service: "my-app", account: "auth" }
 
 #### `callbackPath?`
 
-The path the deep link redirects to after authentication. Defaults to `/auth/callback`. Must match the path configured in `electronProxyClient`.
+The path the deep link redirects to after authentication. Defaults to `/auth/callback`. Must match the path configured in `electrobunProxyClient`.
 
 ```ts
 electrobunClient({ callbackPath: "/auth/callback" });
@@ -410,7 +410,7 @@ electrobunClient({ cookiePrefix: ["better-auth", "my-app"] });
 
 #### `clientID?`
 
-The client ID identifying the Electrobun client during authorization. Defaults to `electron`. Must match the `clientID` configured in the server plugin and proxy client.
+The client ID identifying the Electrobun client during authorization. Defaults to `electrobun`. Must match the `clientID` configured in the server plugin and proxy client.
 
 #### `sanitizeUser?`
 
