@@ -10,7 +10,7 @@ import { oAuthProxy } from "better-auth/plugins";
 import Database from "better-sqlite3";
 import { afterAll, afterEach, beforeAll, test } from "vitest";
 import { electrobunClient } from "../src/client";
-import { electron, electronProxyClient } from "../src/index";
+import { electrobun, electrobunProxyClient } from "../src/index";
 import type { ElectrobunClientOptions } from "../src/types/client";
 
 export const it = test;
@@ -37,7 +37,7 @@ function getTestInstance(overrideOpts?: BetterAuthOptions) {
 		socialProviders: {
 			google: { clientId: "test", clientSecret: "test" },
 		},
-		plugins: [electron(), oAuthProxy()],
+		plugins: [electrobun(), oAuthProxy()],
 		trustedOrigins: ["myapp:/"],
 		...(overrideOpts ?? {}),
 	});
@@ -50,7 +50,7 @@ function getTestInstance(overrideOpts?: BetterAuthOptions) {
 	const proxyClient = createAuthClient({
 		baseURL: "http://localhost:3000",
 		fetchOptions: { customFetchImpl },
-		plugins: [electronProxyClient(options)],
+		plugins: [electrobunProxyClient(options)],
 	});
 
 	let capturedFetch: BetterFetch | null = null;
