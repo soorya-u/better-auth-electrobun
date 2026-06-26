@@ -4,10 +4,21 @@ export default defineConfig([
 	{
 		dts: true,
 		format: ["esm"],
+		plugins: [
+			{
+				name: "rewrite-worker-url",
+				renderChunk(code, chunk) {
+					if (chunk.fileName === "storage.mjs") {
+						return { code: code.replace('"./worker.ts"', '"./worker.mjs"') };
+					}
+				},
+			},
+		],
 		entry: [
 			"./src/index.ts",
 			"./src/client.ts",
 			"./src/storage.ts",
+			"./src/worker.ts",
 			"./src/rpc/webview.ts",
 		],
 		treeshake: true,
