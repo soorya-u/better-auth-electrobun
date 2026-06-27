@@ -1,13 +1,16 @@
-import type { Storage } from "./types/client";
+import type { Storage } from "./types";
 
-export type StorageOptions = {
+export type KeychainStorageOptions = {
 	service?: string | undefined;
 	account?: string | undefined;
 };
 
-// Loads the keychain blob once via Bun.secrets, then serves a synchronous cache
-export async function storage(opts: StorageOptions = {}): Promise<Storage> {
-	const { service = "better-auth-electrobun", account = "session" } = opts;
+// Loads the keychain blob once via Bun.secrets, then serves a synchronous cache.
+// Bun-specific; the Electron adapter supplies its own keychain-backed Storage.
+export async function keychainStorage(
+	opts: KeychainStorageOptions = {},
+): Promise<Storage> {
+	const { service = "better-auth-desktop", account = "session" } = opts;
 
 	let cache: Record<string, unknown> = {};
 	try {

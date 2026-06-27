@@ -12,11 +12,13 @@ import { setSessionCookie } from "better-auth/cookies";
 import type { User } from "better-auth/db";
 import { parseUserOutput } from "better-auth/db";
 import * as z from "zod";
-import { ELECTROBUN_ERROR_CODES } from "./error-codes";
+import { parseLoopbackUrl } from "../core/loopback";
+import { DESKTOP_ERROR_CODES } from "./error-codes";
+import type { ResolvedServerOptions } from "./types";
 
-export const electrobunToken = (_opts: unknown) =>
+export const desktopToken = (_opts: ResolvedServerOptions) =>
 	createAuthEndpoint(
-		"/electrobun/token",
+		"/desktop/token",
 		{
 			method: "POST",
 			body: z.object({
@@ -28,36 +30,33 @@ export const electrobunToken = (_opts: unknown) =>
 		},
 		async (ctx) => {
 			const token = await ctx.context.internalAdapter.consumeVerificationValue(
-				`electrobun:${ctx.body.token}`,
+				`desktop:${ctx.body.token}`,
 			);
 			if (!token) {
-				throw APIError.from("NOT_FOUND", ELECTROBUN_ERROR_CODES.INVALID_TOKEN);
+				throw APIError.from("NOT_FOUND", DESKTOP_ERROR_CODES.INVALID_TOKEN);
 			}
 
 			const tokenRecord = safeJSONParse<Record<string, any>>(token.value);
 			if (!tokenRecord) {
 				throw APIError.from(
 					"INTERNAL_SERVER_ERROR",
-					ELECTROBUN_ERROR_CODES.INVALID_TOKEN,
+					DESKTOP_ERROR_CODES.INVALID_TOKEN,
 				);
 			}
 
 			if (tokenRecord.state !== ctx.body.state) {
-				throw APIError.from(
-					"BAD_REQUEST",
-					ELECTROBUN_ERROR_CODES.STATE_MISMATCH,
-				);
+				throw APIError.from("BAD_REQUEST", DESKTOP_ERROR_CODES.STATE_MISMATCH);
 			}
 			if (!tokenRecord.codeChallenge) {
 				throw APIError.from(
 					"BAD_REQUEST",
-					ELECTROBUN_ERROR_CODES.MISSING_CODE_CHALLENGE,
+					DESKTOP_ERROR_CODES.MISSING_CODE_CHALLENGE,
 				);
 			}
 			if (tokenRecord.codeChallengeMethod !== "s256") {
 				throw APIError.from(
 					"BAD_REQUEST",
-					ELECTROBUN_ERROR_CODES.INVALID_PKCE_METHOD,
+					DESKTOP_ERROR_CODES.INVALID_PKCE_METHOD,
 				);
 			}
 
@@ -74,7 +73,7 @@ export const electrobunToken = (_opts: unknown) =>
 			) {
 				throw APIError.from(
 					"BAD_REQUEST",
-					ELECTROBUN_ERROR_CODES.INVALID_CODE_VERIFIER,
+					DESKTOP_ERROR_CODES.INVALID_CODE_VERIFIER,
 				);
 			}
 
@@ -106,13 +105,9 @@ export const electrobunToken = (_opts: unknown) =>
 		},
 	);
 
-export const electrobunInitOAuthProxy = (opts: {
-	clientID?: string;
-	codeExpiresIn?: number;
-	callback?: { url: string; hashKey?: string };
-}) =>
+export const desktopInitOAuthProxy = (opts: ResolvedServerOptions) =>
 	createAuthEndpoint(
-		"/electrobun/init-oauth-proxy",
+		"/desktop/init-oauth-proxy",
 		{
 			method: "GET",
 			query: z.object({
@@ -120,10 +115,23 @@ export const electrobunInitOAuthProxy = (opts: {
 				state: z.string(),
 				code_challenge: z.string(),
 				code_challenge_method: z.string().optional(),
+				// Loopback destination supplied by the desktop adapter (RFC 8252).
+				callbackURL: z.string().nonempty(),
 			}),
 			metadata: { scope: "http" },
 		},
 		async (ctx) => {
+			const loopback = parseLoopbackUrl(
+				ctx.query.callbackURL,
+				opts.allowedLoopbackPorts,
+			);
+			if (!loopback) {
+				throw APIError.from(
+					"BAD_REQUEST",
+					DESKTOP_ERROR_CODES.INVALID_LOOPBACK_URL,
+				);
+			}
+
 			const isSocialProvider = SocialProviderListEnum.safeParse(
 				ctx.query.provider,
 			);
@@ -137,7 +145,7 @@ export const electrobunInitOAuthProxy = (opts: {
 			) {
 				throw APIError.from(
 					"BAD_REQUEST",
-					ELECTROBUN_ERROR_CODES.INVALID_PKCE_METHOD,
+					DESKTOP_ERROR_CODES.INVALID_PKCE_METHOD,
 				);
 			}
 
@@ -145,19 +153,17 @@ export const electrobunInitOAuthProxy = (opts: {
 			headers.set("origin", new URL(ctx.context.baseURL).origin);
 			let setCookie: string | null = null;
 			const searchParams = new URLSearchParams();
-			searchParams.set("client_id", opts.clientID || "electrobun");
+			searchParams.set("client_id", opts.clientID);
 			searchParams.set("code_challenge", ctx.query.code_challenge);
 			searchParams.set("code_challenge_method", "S256");
 			searchParams.set("state", ctx.query.state);
 
-			const body: { provider: string; callbackURL?: string } = {
-				provider: ctx.query.provider,
-			};
-			// Cross-domain: route OAuth completion to /electrobun/oauth-complete, which
-			// mints the token and redirects to the web callback.
-			if (opts.callback) {
-				body.callbackURL = `${ctx.context.baseURL}/electrobun/oauth-complete`;
-			}
+			// Route OAuth completion through /desktop/oauth-complete, carrying the
+			// loopback destination so it can mint the token and redirect there.
+			const completeURL = new URL(
+				`${ctx.context.baseURL}/desktop/oauth-complete`,
+			);
+			completeURL.searchParams.set("redirect", loopback.toString());
 
 			const res = await betterFetch<{
 				url: string | undefined;
@@ -169,7 +175,10 @@ export const electrobunInitOAuthProxy = (opts: {
 				{
 					baseURL: ctx.context.baseURL,
 					method: "POST",
-					body,
+					body: {
+						provider: ctx.query.provider,
+						callbackURL: completeURL.toString(),
+					},
 					onResponse: (ctx) => {
 						setCookie = ctx.response.headers.get("set-cookie") ?? null;
 					},
@@ -184,25 +193,22 @@ export const electrobunInitOAuthProxy = (opts: {
 			}
 
 			if (setCookie) ctx.setHeader("set-cookie", setCookie);
-			// Cross-domain: plant the transfer cookie ourselves (SameSite=None) so it
-			// survives the cross-site OAuth round-trip back to /electrobun/oauth-complete.
-			// setSignedCookie appends, so it coexists with the forwarded state cookie.
-			if (opts.callback) {
-				const cookie = ctx.context.createAuthCookie("transfer_token", {
-					maxAge: opts.codeExpiresIn ?? 300,
-				});
-				await ctx.setSignedCookie(
-					cookie.name,
-					JSON.stringify({
-						client_id: opts.clientID || "electrobun",
-						state: ctx.query.state,
-						code_challenge: ctx.query.code_challenge,
-						code_challenge_method: ctx.query.code_challenge_method ?? "S256",
-					}),
-					ctx.context.secret,
-					cookie.attributes,
-				);
-			}
+			// Plant the transfer cookie ourselves (SameSite=None) so the PKCE payload
+			// survives the cross-site OAuth round-trip back to /desktop/oauth-complete.
+			const cookie = ctx.context.createAuthCookie("transfer_token", {
+				maxAge: opts.codeExpiresIn,
+			});
+			await ctx.setSignedCookie(
+				cookie.name,
+				JSON.stringify({
+					client_id: opts.clientID,
+					state: ctx.query.state,
+					code_challenge: ctx.query.code_challenge,
+					code_challenge_method: ctx.query.code_challenge_method ?? "S256",
+				}),
+				ctx.context.secret,
+				cookie.attributes,
+			);
 			if (res.data.url && res.data.redirect) {
 				ctx.setHeader("Location", res.data.url);
 				ctx.setStatus(302);
@@ -212,38 +218,44 @@ export const electrobunInitOAuthProxy = (opts: {
 		},
 	);
 
-type TransferPayload = {
+export type TransferPayload = {
 	client_id: string;
 	state: string;
 	code_challenge: string;
 	code_challenge_method?: string | undefined;
 };
 
-type HandleTransfer = (
+export type HandleTransfer = (
 	ctx: GenericEndpointContext,
 	payload: TransferPayload,
 ) => Promise<string | null>;
 
-// Cross-domain OAuth completion. Set as the sign-in callbackURL, so both the
-// direct (/callback) and proxied (/oauth-proxy-callback) flows land here once the
-// session exists. Mints the one-time code and redirects to the web callback.
-export const electrobunOAuthComplete = (
-	opts: { codeExpiresIn: number; callback?: { url: string; hashKey?: string } },
+// OAuth completion endpoint. Set as the sign-in callbackURL, so both the direct
+// (/callback) and proxied (/oauth-proxy-callback) flows land here once the
+// session exists. Mints the one-time code and redirects to the desktop loopback
+// (default) or to the branded web callback page (when webCallbackUrl is set).
+export const desktopOAuthComplete = (
+	opts: ResolvedServerOptions,
 	{ handleTransfer }: { handleTransfer: HandleTransfer },
 ) =>
 	createAuthEndpoint(
-		"/electrobun/oauth-complete",
+		"/desktop/oauth-complete",
 		{
 			method: "GET",
+			query: z.object({ redirect: z.string().nonempty() }),
 			use: [sessionMiddleware],
 			requireHeaders: true,
 			metadata: { scope: "http" },
 		},
 		async (ctx) => {
-			if (!opts.callback) {
+			const loopback = parseLoopbackUrl(
+				ctx.query.redirect,
+				opts.allowedLoopbackPorts,
+			);
+			if (!loopback) {
 				throw APIError.from(
 					"BAD_REQUEST",
-					ELECTROBUN_ERROR_CODES.INVALID_CLIENT_ID,
+					DESKTOP_ERROR_CODES.INVALID_LOOPBACK_URL,
 				);
 			}
 
@@ -260,14 +272,14 @@ export const electrobunOAuthComplete = (
 				? safeJSONParse<TransferPayload>(transferCookie)
 				: null;
 			if (!payload) {
-				throw APIError.from("BAD_REQUEST", ELECTROBUN_ERROR_CODES.MISSING_STATE);
+				throw APIError.from("BAD_REQUEST", DESKTOP_ERROR_CODES.MISSING_STATE);
 			}
 
 			const identifier = await handleTransfer(ctx, payload);
 			if (identifier === null) {
 				throw APIError.from(
 					"BAD_REQUEST",
-					ELECTROBUN_ERROR_CODES.INVALID_CLIENT_ID,
+					DESKTOP_ERROR_CODES.INVALID_CLIENT_ID,
 				);
 			}
 
@@ -276,46 +288,21 @@ export const electrobunOAuthComplete = (
 					JSON.stringify({ identifier, state: payload.state }),
 				),
 			);
-			const hashKey = opts.callback.hashKey ?? "token";
-			ctx.setHeader(
-				"Location",
-				`${opts.callback.url}#${hashKey}=${redirectToken}`,
-			);
-			ctx.setStatus(302);
-		},
-	);
 
-export const electrobunTransferUser = (
-	_opts: unknown,
-	{ handleTransfer }: { handleTransfer: HandleTransfer },
-) =>
-	createAuthEndpoint(
-		"/electrobun/transfer-user",
-		{
-			method: "POST",
-			query: z.object({
-				client_id: z.string(),
-				state: z.string(),
-				code_challenge: z.string(),
-				code_challenge_method: z.string().optional(),
-			}),
-			body: z.object({ callbackURL: z.string().optional() }),
-			use: [sessionMiddleware],
-			requireHeaders: true,
-			metadata: { scope: "http" },
-		},
-		async (ctx) => {
-			const identifier = await handleTransfer(ctx, ctx.query);
-			if (identifier === null) {
-				throw APIError.from(
-					"BAD_REQUEST",
-					ELECTROBUN_ERROR_CODES.INVALID_CLIENT_ID,
+			if (opts.webCallbackUrl) {
+				// Branded path: hand the token + loopback to the web page, which calls
+				// forwardToDesktop() to perform the top-level navigation to 127.0.0.1.
+				ctx.setHeader(
+					"Location",
+					`${opts.webCallbackUrl}#${opts.hashKey}=${redirectToken}&loopback=${encodeURIComponent(loopback.toString())}`,
 				);
+				ctx.setStatus(302);
+				return;
 			}
-			return ctx.json({
-				url: ctx.body.callbackURL ?? null,
-				redirect: !!ctx.body.callbackURL,
-				electrobun_authorization_code: identifier,
-			});
+
+			// Default path: redirect the browser straight to the loopback.
+			loopback.searchParams.set(opts.hashKey, redirectToken);
+			ctx.setHeader("Location", loopback.toString());
+			ctx.setStatus(302);
 		},
 	);

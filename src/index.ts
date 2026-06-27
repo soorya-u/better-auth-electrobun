@@ -1,20 +1,2 @@
-export type { ElectronSharedOptions } from "@better-auth/electron";
-export { electronProxyClient as electrobunProxyClient } from "@better-auth/electron/proxy";
-export { electrobunClient } from "./client";
-export type { AuthBunRPCContext, AuthSender } from "./rpc/bun";
-export { authRequestHandlers, createAuthBunRPC } from "./rpc/bun";
-export type {
-	AuthBridges,
-	AuthBunRequests,
-	AuthWebviewMessages,
-	ElectrobunAuthRPC,
-} from "./rpc/schema";
-export { electrobun } from "./server/plugin";
-export { handleDeepLink } from "./setup";
-export { storage } from "./storage";
-export type * from "./types/auth";
-export type * from "./types/client";
-export type { ElectrobunClientOptions, Storage } from "./types/client";
-export type { ElectrobunServerOptions } from "./types/options";
-export { normalizeUserOutput } from "./user";
+export * from "./core";
 export { PACKAGE_VERSION } from "./version";

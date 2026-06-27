@@ -5,7 +5,6 @@
     "": {
       "name": "@soorya-u/better-auth-electrobun",
       "dependencies": {
-        "@better-auth/electron": "^1.6.21",
         "zod": "^4.3.6",
       },
       "devDependencies": {
@@ -28,9 +27,13 @@
         "better-auth": "^1.6.21",
         "better-call": "^1.3.7",
         "electrobun": ">=1.18.1",
+        "electron": ">=28.0.0",
+        "electron-store": ">=8.2.0",
       },
       "optionalPeers": [
         "electrobun",
+        "electron",
+        "electron-store",
       ],
     },
   },
@@ -50,8 +53,6 @@
     "@better-auth/core": ["@better-auth/core@1.6.21", "", { "dependencies": { "@opentelemetry/semantic-conventions": "^1.39.0", "@standard-schema/spec": "^1.1.0", "zod": "^4.3.6" }, "peerDependencies": { "@better-auth/utils": "0.4.2", "@better-fetch/fetch": "1.3.1", "@cloudflare/workers-types": ">=4", "@opentelemetry/api": "^1.9.0", "better-call": "1.3.7", "jose": "^6.1.0", "kysely": "^0.28.5 || ^0.29.0", "nanostores": "^1.0.1" }, "optionalPeers": ["@cloudflare/workers-types", "@opentelemetry/api"] }, "sha512-vIZCHw4ntWUE+CIXxiVmpa1S/YtX0tDtylV5HyaqvAf9AuUKsU1TXbKVYCKkLrgwMaVGGrVNcvVS6WN2KWS9IA=="],
 
     "@better-auth/drizzle-adapter": ["@better-auth/drizzle-adapter@1.6.21", "", { "peerDependencies": { "@better-auth/core": "^1.6.21", "@better-auth/utils": "0.4.2", "drizzle-orm": "^0.45.2" }, "optionalPeers": ["drizzle-orm"] }, "sha512-f2BMUnFBwbX94lxZP05ygOOCfwD4t5jAQY5PAZiNTrLhDyUKoVPoLP1j+t8kRvC09SlzC3HR/AwAIFKO4OVNRw=="],
-
-    "@better-auth/electron": ["@better-auth/electron@1.6.21", "", { "dependencies": { "zod": "^4.3.6" }, "peerDependencies": { "@better-auth/core": "^1.6.21", "@better-auth/utils": "0.4.2", "@better-fetch/fetch": "1.3.1", "better-auth": "^1.6.21", "better-call": "1.3.7", "conf": "^15.0.2", "electron": ">=36.0.0" }, "optionalPeers": ["conf", "electron"] }, "sha512-NF82VUb1n8raEjTxtwjiEbs8OzJ9ul6k/5ZnDzsHeZkNQ4sUhHjHyYE7xZ9u5xoACypVYOXmgL+v9M10J1OSaA=="],
 
     "@better-auth/kysely-adapter": ["@better-auth/kysely-adapter@1.6.21", "", { "peerDependencies": { "@better-auth/core": "^1.6.21", "@better-auth/utils": "0.4.2", "kysely": "^0.28.17 || ^0.29.0" }, "optionalPeers": ["kysely"] }, "sha512-UlyCG+HU3PePk3bfO1WdQwGPGqOZuQmnjq94nCwlYhDbHX2KW/cJD9iFdDubPSao0+FXJe5znMsB5U6AHCrV4w=="],
 

@@ -1,4 +1,3 @@
-import type { BetterAuthClientPlugin } from "@better-auth/core";
 import { base64Url } from "@better-auth/utils/base64";
 import type { BetterFetch } from "@better-fetch/fetch";
 import type { BetterAuthOptions } from "better-auth";
@@ -8,27 +7,30 @@ import { createAuthClient } from "better-auth/client";
 import { getMigrations } from "better-auth/db/migration";
 import { oAuthProxy } from "better-auth/plugins";
 import Database from "better-sqlite3";
-import { afterAll, afterEach, beforeAll, test } from "vitest";
-import { electrobunClient } from "../src/client";
-import { electrobun, electrobunProxyClient } from "../src/index";
-import type { ElectrobunClientOptions } from "../src/types/client";
+import { afterAll, beforeAll, test } from "vitest";
+import type { DesktopClientInternals } from "../src/core/client";
+import { desktopClient } from "../src/core/client";
+import type {
+	AuthEvent,
+	DesktopAdapter,
+	LoopbackRequest,
+	LoopbackResponse,
+	Storage,
+} from "../src/core/types";
+import { betterAuthDesktop } from "../src/server";
 
 export const it = test;
 
+export const CLIENT_ID = "test-desktop";
+
 function getTestInstance(overrideOpts?: BetterAuthOptions) {
-	const storage = new Map<string, any>();
-	const options = {
-		signInURL: "http://localhost:3000/sign-in",
-		protocol: {
-			scheme: "myapp",
+	const store = new Map<string, string>();
+	const storage: Storage = {
+		getItem: (name) => store.get(name) ?? null,
+		setItem: (name, value) => {
+			store.set(name, String(value));
 		},
-		storage: {
-			getItem: (name: string) => storage.get(name) ?? null,
-			setItem: (name: string, value: unknown) => {
-				storage.set(name, value);
-			},
-		},
-	} satisfies ElectrobunClientOptions;
+	};
 
 	const auth = betterAuth({
 		baseURL: "http://localhost:3000",
@@ -37,8 +39,8 @@ function getTestInstance(overrideOpts?: BetterAuthOptions) {
 		socialProviders: {
 			google: { clientId: "test", clientSecret: "test" },
 		},
-		plugins: [electrobun(), oAuthProxy()],
-		trustedOrigins: ["myapp:/"],
+		plugins: [betterAuthDesktop({ clientID: CLIENT_ID }), oAuthProxy()],
+		trustedOrigins: ["http://localhost:3000"],
 		...(overrideOpts ?? {}),
 	});
 
@@ -47,27 +49,24 @@ function getTestInstance(overrideOpts?: BetterAuthOptions) {
 		return auth.handler(req);
 	};
 
-	const proxyClient = createAuthClient({
-		baseURL: "http://localhost:3000",
-		fetchOptions: { customFetchImpl },
-		plugins: [electrobunProxyClient(options)],
-	});
-
 	let capturedFetch: BetterFetch | null = null;
 	const client = createAuthClient({
 		baseURL: "http://localhost:3000",
 		fetchOptions: { customFetchImpl },
 		plugins: [
-			electrobunClient(options),
+			desktopClient({ storage, clientID: CLIENT_ID }),
 			{
 				id: "capture-fetch",
 				getActions: ($fetch: BetterFetch) => {
 					capturedFetch = $fetch;
 					return {};
 				},
-			} satisfies BetterAuthClientPlugin,
+			},
 		],
 	});
+
+	const internals =
+		client.getDesktopInternals() as unknown as DesktopClientInternals;
 
 	const get$fetch = () => {
 		if (!capturedFetch) throw new Error("$fetch not initialized");
@@ -76,11 +75,11 @@ function getTestInstance(overrideOpts?: BetterAuthOptions) {
 
 	return {
 		auth,
-		proxyClient,
 		client,
-		options,
-		customFetchImpl,
+		internals,
 		storage,
+		store,
+		customFetchImpl,
 		get$fetch,
 	};
 }
@@ -93,10 +92,6 @@ export function testUtils(overrideOpts?: BetterAuthOptions) {
 		await runMigrations();
 	});
 
-	afterEach(() => {
-		testInstance.storage.clear();
-	});
-
 	afterAll(() => {});
 
 	return testInstance;
@@ -106,4 +101,44 @@ export function encodeRedirectToken(identifier: string, state: string) {
 	return base64Url.encode(
 		new TextEncoder().encode(JSON.stringify({ identifier, state })),
 	);
+}
+
+// In-memory adapter that captures the loopback handler and the opened URL so a
+// test can drive the loopback hit synchronously.
+export function mockAdapter(storage: Storage) {
+	let onRequest: ((req: LoopbackRequest) => Promise<LoopbackResponse>) | null =
+		null;
+	let openedUrl = "";
+	let closed = false;
+	const events: AuthEvent[] = [];
+
+	const adapter: DesktopAdapter = {
+		openExternal: (url) => {
+			openedUrl = url;
+		},
+		serveLoopback: async (handler) => {
+			onRequest = handler;
+			return {
+				port: 51789,
+				close: () => {
+					closed = true;
+				},
+			};
+		},
+		notifyRenderer: (event) => {
+			events.push(event);
+		},
+		storage,
+	};
+
+	return {
+		adapter,
+		events,
+		hit: (req: LoopbackRequest) => {
+			if (!onRequest) throw new Error("loopback not started");
+			return onRequest(req);
+		},
+		openedUrl: () => openedUrl,
+		isClosed: () => closed,
+	};
 }

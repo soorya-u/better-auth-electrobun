@@ -1,6 +1,6 @@
 import type { User } from "@better-auth/core/db";
 import type { BetterFetchError } from "@better-fetch/fetch";
-import type { RequestAuthOptions } from "../types/auth";
+import type { RequestAuthOptions } from "../core/types";
 
 export type RPCSchema<
 	T extends { requests?: any; messages?: any } | undefined = undefined,
@@ -8,7 +8,7 @@ export type RPCSchema<
 	? { requests: Record<string, any>; messages: Record<string, any> }
 	: NonNullable<T>;
 
-export type ElectrobunRPCSchema = {
+export type DesktopRPCSchema = {
 	bun: RPCSchema;
 	webview: RPCSchema;
 };
@@ -19,15 +19,11 @@ export type AuthBunRequests = {
 		response: (User & Record<string, any>) | null;
 	};
 	requestAuth: {
-		params: { options?: RequestAuthOptions | undefined };
+		params: { options: RequestAuthOptions };
 		response: undefined;
 	};
 	signOut: {
 		params: Record<never, never>;
-		response: undefined;
-	};
-	authenticate: {
-		params: { token: string };
 		response: undefined;
 	};
 	getUserImage: {
@@ -40,12 +36,12 @@ export type AuthWebviewMessages = {
 	onAuthenticated: User & Record<string, any>;
 	onUserUpdated: (User & Record<string, any>) | null;
 	onAuthError: {
-		error: BetterFetchError;
-		path: string;
+		error: BetterFetchError | { message: string };
+		path?: string;
 	};
 };
 
-export type ElectrobunAuthRPC = ElectrobunRPCSchema & {
+export type DesktopAuthRPC = DesktopRPCSchema & {
 	bun: {
 		requests: AuthBunRequests;
 		messages: Record<never, never>;
@@ -58,9 +54,9 @@ export type ElectrobunAuthRPC = ElectrobunRPCSchema & {
 
 export type AuthBridges = {
 	getUser(): Promise<(User & Record<string, any>) | null>;
-	requestAuth(options?: RequestAuthOptions): Promise<void>;
+	requestAuth(options: RequestAuthOptions): Promise<void>;
 	signOut(): Promise<void>;
-	authenticate(data: { token: string }): Promise<void>;
+	getUserImage(url: string): Promise<{ dataUrl: string | null }>;
 	onAuthenticated(
 		callback: (user: User & Record<string, any>) => void,
 	): () => void;
@@ -68,9 +64,11 @@ export type AuthBridges = {
 		callback: (user: (User & Record<string, any>) | null) => void,
 	): () => void;
 	onAuthError(
-		callback: (context: { error: BetterFetchError; path: string }) => void,
+		callback: (context: {
+			error: BetterFetchError | { message: string };
+			path?: string;
+		}) => void,
 	): () => void;
-	getUserImage(url: string): Promise<{ dataUrl: string | null }>;
 };
 
 export type ExposedBridges = AuthBridges;

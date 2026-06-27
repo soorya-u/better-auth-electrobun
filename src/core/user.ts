@@ -1,6 +1,6 @@
 import type { User } from "@better-auth/core/db";
 import { base64 } from "@better-auth/utils/base64";
-import type { ElectrobunClientOptions } from "./types/client";
+import type { DesktopClientOptions } from "./types";
 
 const DEFAULT_MAX_BYTES = 1024 * 1024 * 5; // 5MB
 
@@ -13,13 +13,11 @@ export async function fetchUserImage(
 	baseURL: string | undefined,
 	url: string,
 ): Promise<FetchUserImageResult | null> {
-	// Handle data URLs
 	const decoded = await decodeDataImageUrl(url);
 	if (decoded) {
 		return { bytes: decoded.bytes, mimeType: decoded.mimeType };
 	}
 
-	// Validate and resolve URL
 	let resolvedUrl: string;
 	try {
 		let parsed: URL;
@@ -39,7 +37,6 @@ export async function fetchUserImage(
 		return null;
 	}
 
-	// Uses Bun's global `fetch` (Electron's `net.fetch` equivalent).
 	const response = await fetch(resolvedUrl, {
 		method: "GET",
 		headers: { accept: "image/*" },
@@ -68,15 +65,11 @@ export async function fetchUserImage(
 	return { bytes, mimeType };
 }
 
-/**
- * Leaves the user object's `image` as-is. Electrobun has no custom-protocol
- * handler equivalent to Electron's `user-image://` scheme, so we do not
- * rewrite URLs here. (An optional RPC-based image proxy can be layered on
- * later by the consumer — see the roadmap in the plan.)
- */
+// Leaves `user.image` as-is; no custom-scheme image rewriting in the loopback
+// flow. Consumers wanting an in-process image proxy can use the getUserImage RPC.
 export function normalizeUserOutput<U extends User & Record<string, any>>(
 	user: U,
-	_options?: ElectrobunClientOptions | undefined,
+	_options?: DesktopClientOptions | undefined,
 ): U {
 	return { ...user };
 }
@@ -185,7 +178,6 @@ function detectImageType(bytes: Uint8Array): SupportedImageType | null {
 		return "image/x-icon";
 	}
 
-	// avif, heic, heif
 	if (bytes.length < 16) return null;
 
 	const fTyp = String.fromCharCode(...bytes.slice(4, 8));
