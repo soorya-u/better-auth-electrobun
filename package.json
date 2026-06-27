@@ -1,7 +1,7 @@
 {
-	"name": "@soorya-u/better-auth-electrobun",
+	"name": "@soorya-u/better-auth-desktop",
 	"version": "0.1.0",
-	"description": "Better Auth client integration for Electrobun desktop apps. Reuses the framework-agnostic server plugin and web proxy from @better-auth/electron.",
+	"description": "Loopback-based desktop auth for Better Auth. Framework-agnostic server + core with thin Electrobun and Electron adapters; OAuth hand-off via a 127.0.0.1 loopback navigation (no custom URL scheme).",
 	"type": "module",
 	"license": "MIT",
 	"homepage": "https://github.com/soorya-u/better-auth-electrobun",
@@ -11,9 +11,11 @@
 	},
 	"keywords": [
 		"electrobun",
+		"electron",
 		"auth",
 		"better-auth",
 		"desktop",
+		"loopback",
 		"typescript"
 	],
 	"publishConfig": {
@@ -27,7 +29,9 @@
 		"lint:types": "attw --profile esm-only --pack .",
 		"typecheck": "tsc --project tsconfig.typecheck.json --noEmit",
 		"test": "vitest",
-		"coverage": "vitest run --coverage --coverage.provider=istanbul"
+		"coverage": "vitest run --coverage --coverage.provider=istanbul",
+		"check": "biome check",
+		"fix": "biome check --fix --assist-enabled=true"
 	},
 	"files": [
 		"dist",
@@ -42,15 +46,35 @@
 			"types": "./dist/index.d.mts",
 			"default": "./dist/index.mjs"
 		},
+		"./server": {
+			"dev-source": "./src/server/index.ts",
+			"types": "./dist/server/index.d.mts",
+			"default": "./dist/server/index.mjs"
+		},
 		"./client": {
 			"dev-source": "./src/client.ts",
 			"types": "./dist/client.d.mts",
 			"default": "./dist/client.mjs"
 		},
-		"./storage": {
-			"dev-source": "./src/storage.ts",
-			"types": "./dist/storage.d.mts",
-			"default": "./dist/storage.mjs"
+		"./core": {
+			"dev-source": "./src/core/index.ts",
+			"types": "./dist/core/index.d.mts",
+			"default": "./dist/core/index.mjs"
+		},
+		"./electrobun": {
+			"dev-source": "./src/adapters/electrobun.ts",
+			"types": "./dist/adapters/electrobun.d.mts",
+			"default": "./dist/adapters/electrobun.mjs"
+		},
+		"./electron": {
+			"dev-source": "./src/adapters/electron.ts",
+			"types": "./dist/adapters/electron.d.mts",
+			"default": "./dist/adapters/electron.mjs"
+		},
+		"./web": {
+			"dev-source": "./src/web/index.ts",
+			"types": "./dist/web/index.d.mts",
+			"default": "./dist/web/index.mjs"
 		},
 		"./rpc/webview": {
 			"dev-source": "./src/rpc/webview.ts",
@@ -63,11 +87,23 @@
 			"*": [
 				"./dist/index.d.mts"
 			],
+			"server": [
+				"./dist/server/index.d.mts"
+			],
 			"client": [
 				"./dist/client.d.mts"
 			],
-			"storage": [
-				"./dist/storage.d.mts"
+			"core": [
+				"./dist/core/index.d.mts"
+			],
+			"electrobun": [
+				"./dist/adapters/electrobun.d.mts"
+			],
+			"electron": [
+				"./dist/adapters/electron.d.mts"
+			],
+			"web": [
+				"./dist/web/index.d.mts"
 			],
 			"rpc/webview": [
 				"./dist/rpc/webview.d.mts"
@@ -75,7 +111,6 @@
 		}
 	},
 	"dependencies": {
-		"@better-auth/electron": "^1.6.21",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
@@ -97,10 +132,18 @@
 		"@better-fetch/fetch": "^1.3.1",
 		"better-auth": "^1.6.21",
 		"better-call": "^1.3.7",
+		"electron": ">=28.0.0",
+		"electron-store": ">=8.2.0",
 		"electrobun": ">=1.18.1"
 	},
 	"peerDependenciesMeta": {
 		"electrobun": {
+			"optional": true
+		},
+		"electron": {
+			"optional": true
+		},
+		"electron-store": {
 			"optional": true
 		}
 	},
