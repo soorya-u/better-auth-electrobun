@@ -53,7 +53,7 @@ export async function requestAuth(
 				message: "Base URL is required to use provider-based sign-in.",
 			});
 		}
-		url = new URL(`${baseURL}/electron/init-oauth-proxy`);
+		url = new URL(`${baseURL}/electrobun/init-oauth-proxy`);
 		for (const [key, value] of Object.entries(cfg)) {
 			if (value === undefined) continue;
 			url.searchParams.set(
@@ -102,7 +102,7 @@ export async function authenticate({
 	return await $fetch<{
 		token: string;
 		user: User & Record<string, any>;
-	}>("/electron/token", {
+	}>("/electrobun/token", {
 		...fetchOptions,
 		method: "POST",
 		body: {

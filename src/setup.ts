@@ -72,9 +72,14 @@ export async function handleDeepLink({
 	const path = `/${hostname}${pathname}`;
 
 	if (path !== (options.callbackPath || "/auth/callback")) return;
-	if (!hash.startsWith("#token=")) return;
 
-	const token = hash.substring("#token=".length);
+	// Matches the server's cross-domain hashKey; kept raw for `authenticate`.
+	const hashKey =
+		options.origin === "cross" ? (options.callback.hashKey ?? "token") : "token";
+	const prefix = `#${hashKey}=`;
+	if (!hash.startsWith(prefix)) return;
+	const token = hash.slice(prefix.length);
+	if (!token) return;
 
 	await authenticate({
 		$fetch,

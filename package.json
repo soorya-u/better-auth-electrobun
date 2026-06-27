@@ -27,7 +27,9 @@
 		"lint:types": "attw --profile esm-only --pack .",
 		"typecheck": "tsc --project tsconfig.typecheck.json --noEmit",
 		"test": "vitest",
-		"coverage": "vitest run --coverage --coverage.provider=istanbul"
+		"coverage": "vitest run --coverage --coverage.provider=istanbul",
+		"check": "biome check",
+		"fix": "biome check --fix --assist-enabled=true"
 	},
 	"files": [
 		"dist",
@@ -42,10 +44,20 @@
 			"types": "./dist/index.d.mts",
 			"default": "./dist/index.mjs"
 		},
+		"./server": {
+			"dev-source": "./src/server/index.ts",
+			"types": "./dist/server/index.d.mts",
+			"default": "./dist/server/index.mjs"
+		},
 		"./client": {
 			"dev-source": "./src/client.ts",
 			"types": "./dist/client.d.mts",
 			"default": "./dist/client.mjs"
+		},
+		"./callback": {
+			"dev-source": "./src/callback.ts",
+			"types": "./dist/callback.d.mts",
+			"default": "./dist/callback.mjs"
 		},
 		"./storage": {
 			"dev-source": "./src/storage.ts",
@@ -63,8 +75,14 @@
 			"*": [
 				"./dist/index.d.mts"
 			],
+			"server": [
+				"./dist/server/index.d.mts"
+			],
 			"client": [
 				"./dist/client.d.mts"
+			],
+			"callback": [
+				"./dist/callback.d.mts"
 			],
 			"storage": [
 				"./dist/storage.d.mts"

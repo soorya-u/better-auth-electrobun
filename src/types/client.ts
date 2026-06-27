@@ -16,7 +16,8 @@ export interface ElectrobunSharedClientOptions extends ElectronSharedOptions {
 	callbackPath?: string;
 }
 
-export interface ElectrobunClientOptions extends ElectrobunSharedClientOptions {
+export interface ElectrobunClientBaseOptions
+	extends ElectrobunSharedClientOptions {
 	signInURL: string | URL;
 	storage: Storage;
 	storagePrefix?: string | undefined;
@@ -31,6 +32,24 @@ export interface ElectrobunClientOptions extends ElectrobunSharedClientOptions {
 	sessionPartition?: string | undefined;
 	userImageProxy?: boolean | undefined;
 }
+
+/** Same-origin (cookie) flow — the default. */
+export type ElectrobunClientSameOrigin = ElectrobunClientBaseOptions & {
+	origin?: "same";
+};
+
+/** Cross-domain (callback) flow; mirrors the server plugin's `origin: "cross"`. */
+export type ElectrobunClientCrossDomain = ElectrobunClientBaseOptions & {
+	origin: "cross";
+	callback: {
+		/** Must match the server's `callback.hashKey`. @default "token" */
+		hashKey?: string;
+	};
+};
+
+export type ElectrobunClientOptions =
+	| ElectrobunClientSameOrigin
+	| ElectrobunClientCrossDomain;
 
 export type * from "./auth";
 export type { ElectronSharedOptions };

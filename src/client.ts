@@ -3,7 +3,7 @@ import type {
 	BetterAuthClientPlugin,
 	ClientStore,
 } from "@better-auth/core";
-import type { BetterFetch } from "@better-fetch/fetch";
+import type { BetterFetch, BetterFetchPlugin } from "@better-fetch/fetch";
 import { isDevelopment, isTest } from "better-auth";
 import type { ElectrobunAuthenticateOptions } from "./authenticate";
 import { authenticate, requestAuth } from "./authenticate";
@@ -13,7 +13,12 @@ import {
 	hasBetterAuthCookies,
 	hasSessionCookieChanged,
 } from "./cookies";
-import type { AuthBunRPCContext, AuthSender } from "./rpc/bun";
+import { createAuthBunRPC } from "./rpc/bun";
+import type {
+	AuthBunRPCContext,
+	AuthSender,
+	ElectrobunAuthBunRpc,
+} from "./rpc/bun";
 import type { ExposedBridges } from "./rpc/schema";
 import {
 	clearSessionCookies,
@@ -56,13 +61,12 @@ const ELECTROBUN_UA = `Electrobun better-auth-electrobun/${PACKAGE_VERSION}`;
 export const electrobunClient = <O extends ElectrobunClientOptions>(
 	options: O,
 ) => {
-	const opts: ElectrobunClientOptions = {
+	const opts = {
 		storagePrefix: "better-auth",
 		cookiePrefix: "better-auth",
-		channelPrefix: "better-auth",
 		callbackPath: "/auth/callback",
 		...options,
-	};
+	} as ElectrobunClientOptions;
 
 	const { scheme } = parseProtocolScheme(opts.protocol);
 
@@ -109,7 +113,7 @@ export const electrobunClient = <O extends ElectrobunClientOptions>(
 	return {
 		id: "electrobun",
 		version: PACKAGE_VERSION,
-		fetchPlugins: [
+		fetchPlugins: <BetterFetchPlugin[]>[
 			{
 				id: "electrobun",
 				name: "Electrobun",
@@ -122,7 +126,7 @@ export const electrobunClient = <O extends ElectrobunClientOptions>(
 						...resolvedOptions.headers,
 						cookie,
 						"user-agent": ELECTROBUN_UA,
-						"electron-origin": `${scheme}:/`,
+						"electrobun-origin": `${scheme}:/`,
 						"x-skip-oauth-proxy": "true",
 					};
 
@@ -206,6 +210,21 @@ export const electrobunClient = <O extends ElectrobunClientOptions>(
 				},
 				requestAuth: (cfg?: Parameters<typeof requestAuth>[2] | undefined) =>
 					requestAuth(clientOptions, opts, cfg),
+				// Builds the bun-side RPC and registers it as the webview target.
+				// Pass the result to `new BrowserWindow({ rpc })`.
+				createBunRPC: (): ElectrobunAuthBunRpc => {
+					let rpc: ElectrobunAuthBunRpc | null = null;
+					rpc = createAuthBunRPC({
+						$fetch,
+						$store,
+						getCookie: getCookieFn,
+						clientOptions,
+						options: opts,
+						getWebview: () => (rpc ? { rpc } : null),
+					});
+					getWebview = () => (rpc ? { rpc } : null);
+					return rpc;
+				},
 				setupMain: async (cfg?: {
 					getWebview?: AuthBunRPCContext["getWebview"];
 				}) => {

@@ -3,31 +3,36 @@ import { defineConfig } from "tsdown";
 export default defineConfig([
 	{
 		dts: true,
+		tsconfig: "./tsconfig.build.json",
 		format: ["esm"],
 		plugins: [
 			{
-				name: "rewrite-worker-url",
-				renderChunk(code, chunk) {
-					if (chunk.fileName === "storage.mjs") {
-						return { code: code.replace('"./worker.ts"', '"./worker.mjs"') };
-					}
+				// electrobun's browser entry does `import "./global.d.ts"` (types only);
+				// map any .d.ts side-effect import to an empty runtime module.
+				name: "ignore-dts-imports",
+				resolveId(id: string) {
+					if (id.endsWith(".d.ts")) return "\0empty-dts";
+				},
+				load(id: string) {
+					if (id === "\0empty-dts") return "export {}";
 				},
 			},
 		],
 		entry: [
 			"./src/index.ts",
+			"./src/server/index.ts",
 			"./src/client.ts",
+			"./src/callback.ts",
 			"./src/storage.ts",
-			"./src/worker.ts",
 			"./src/rpc/webview.ts",
 		],
 		treeshake: true,
-		// Keep runtime/ext peer deps external; they resolve in the consumer app.
-		// `electrobun/*` is consumed by the consumer's Bun-built app; never bundle it.
+		// Bundle electrobun's browser view so web consumers need no electrobun dep.
+		noExternal: ["electrobun/view"],
+		// Peer/runtime deps stay external; they resolve in the consumer app.
 		deps: {
 			neverBundle: [
 				"electrobun/bun",
-				"electrobun/view",
 				"electrobun",
 				"better-auth",
 				"better-auth/cookies",

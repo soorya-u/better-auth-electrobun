@@ -1,5 +1,5 @@
-import { base64Url } from "@better-auth/utils/base64";
 import type { BetterAuthClientPlugin } from "@better-auth/core";
+import { base64Url } from "@better-auth/utils/base64";
 import type { BetterFetch } from "@better-fetch/fetch";
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
@@ -74,7 +74,15 @@ function getTestInstance(overrideOpts?: BetterAuthOptions) {
 		return capturedFetch;
 	};
 
-	return { auth, proxyClient, client, options, customFetchImpl, storage, get$fetch };
+	return {
+		auth,
+		proxyClient,
+		client,
+		options,
+		customFetchImpl,
+		storage,
+		get$fetch,
+	};
 }
 
 export function testUtils(overrideOpts?: BetterAuthOptions) {
